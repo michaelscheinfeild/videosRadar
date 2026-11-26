@@ -1,5 +1,14 @@
 # af_2d_plot.py
 
+import os
+import sys
+from pathlib import Path
+
+# Add native libraries when a Windows conda environment is not activated.
+library_bin = Path(sys.prefix) / "Library" / "bin"
+if sys.platform == "win32" and (Path(sys.prefix) / "conda-meta").is_dir() and library_bin.is_dir():
+    os.environ["PATH"] = str(library_bin) + os.pathsep + os.environ.get("PATH", "")
+
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.constants import c, pi
@@ -8,6 +17,36 @@ import matplotlib.animation as animation
 
 
 plt.style.use("ggplot")
+
+def compute_af_2d(weights_n, weights_m, d_x, d_y, k_0, u_0, v_0):
+    AF_m = np.sum(
+        weights_n[:, None, None]
+        * np.exp(1j * n[:, None, None] * d_x * k_0 * (U - u_0)),
+        axis=0,
+    )
+    AF_n = np.sum(
+        weights_m[:, None, None]
+        * np.exp(1j * m[:, None, None] * d_y * k_0 * (V - v_0)),
+        axis=0,
+    )
+
+    AF = AF_m * AF_n / (M * N)
+    return AF
+
+#------------------------------------
+def update(frame, p, ax):
+    print(type(p))
+    if frame < max_frame:
+        p[0].remove()
+        p[0] = ax.plot_surface(
+            U[x - frame : x + frame, y - frame : y + frame],
+            V[x - frame : x + frame, y - frame : y + frame],
+            AF_mask[x - frame : x + frame, y - frame : y + frame],
+            cmap=cm.coolwarm,
+            antialiased=False,
+        )
+    ax.view_init(elev=30, azim=-50 + frame * 0.5, roll=0)
+#-------------------------
 
 f_0 = 10e9  # center frequency for computing phase shifts (GHz)
 wavelength_0 = c / f_0  # m
@@ -45,20 +84,6 @@ v2 = np.linspace(-1, 1, npts)
 U, V = np.meshgrid(u2, v2)  # mesh grid of sine space
 
 
-def compute_af_2d(weights_n, weights_m, d_x, d_y, k_0, u_0, v_0):
-    AF_m = np.sum(
-        weights_n[:, None, None]
-        * np.exp(1j * n[:, None, None] * d_x * k_0 * (U - u_0)),
-        axis=0,
-    )
-    AF_n = np.sum(
-        weights_m[:, None, None]
-        * np.exp(1j * m[:, None, None] * d_y * k_0 * (V - v_0)),
-        axis=0,
-    )
-
-    AF = AF_m * AF_n / (M * N)
-    return AF
 
 
 AF = compute_af_2d(window_n, window_m, d_x, d_y, k_0, u_0, v_0)
@@ -78,20 +103,6 @@ max_frame = x
 
 fig = plt.figure(figsize=(10, 10))
 ax = fig.add_subplot(111, projection="3d")
-
-
-def update(frame, p, ax):
-    print(type(p))
-    if frame < max_frame:
-        p[0].remove()
-        p[0] = ax.plot_surface(
-            U[x - frame : x + frame, y - frame : y + frame],
-            V[x - frame : x + frame, y - frame : y + frame],
-            AF_mask[x - frame : x + frame, y - frame : y + frame],
-            cmap=cm.coolwarm,
-            antialiased=False,
-        )
-    ax.view_init(elev=30, azim=-50 + frame * 0.5, roll=0)
 
 
 plot = [
@@ -116,8 +127,10 @@ ax.set_axis_off()
 ani = animation.FuncAnimation(
     fig, update, frames=max_frame * 3, interval=30, fargs=(plot, ax)
 )
+output_path = Path(__file__).resolve().parent / "static" / "af_2d_anim_rotating.mp4"
+output_path.parent.mkdir(parents=True, exist_ok=True)
 ani.save(
-    "static/af_2d_anim_rotating.mp4",
+    output_path,
     bitrate=-1,
     dpi=300,
     progress_callback=lambda c, l: print(f"Saved: {c}/{l}"),
