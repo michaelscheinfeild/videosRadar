@@ -102,7 +102,12 @@ S = B / T                    # Chirp slope (Hz/sec)
 N = int(Fs * T)
 t = np.arange(N) / Fs
 
+
+dr = c / (2 * B)  # Range resolution (m)
+print("Range resolution:", dr, "m")
+
 targets = np.array([50.0, 80.0, 120.0])  # meters
+#targets = np.array([50.0, 51.0, 52.0])  # meters
 amplitudes = np.array([1.0, 0.8, 0.7])
 
 print("Chirp slope:", S / 1e12, "THz/sec")
@@ -266,3 +271,4 @@ for R in targets:
 
 plt.tight_layout()
 plt.show()
+print("Thats All Folks!")
